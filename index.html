@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML Basic 1.1//EN"
+"http://www.w3.org/TR/xhtml-basic/xhtml-basic11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+<title>My page title</title>
+<script type="text/javscript" src="base.js"></script>
+<script type="text/javascript" src="jquery.min.js"></script>
+<script type="text/javascript" src="jquery.hotkeys.js"></script>
+<script type="text/javascript" src="key_status.js"></script>
+</head>
+<body>
+<canvas id="myCanvas" width="400" height="400" style="border:1px solid #c3c3c3;">
+Your browser does not support the canvas element.
+</canvas>
+<div id="points" style="font-size:20pt"></div>
+<script type="text/javascript">
+var c=document.getElementById("myCanvas");
+var ctx=c.getContext("2d");
+var FPS = 60;
+
+var CANVAS_WIDTH = 400;
+var CANVAS_HEIGHT = 400;
+
+var objectColor = "rgb(100,200,200)";
+ctx.fillStyle = objectColor;
+
+var objectExists = 0;
+var xpos = 0;
+var ypos  = 0;
+var otype = 0;
+var speed = 1;
+var cycle; // the param to keep track of the cycle
+
+var topcanvaspos = 0;
+var running = 0;
+var points = 0;
+
+/*
+1. square ( 50 by 50)
+2. rectangle ( 75 by 25)
+*/
+
+var height = [50, 25];
+var width = [50, 75];
+
+function initObject()
+{
+	keydown.down = false;
+	xpos = 25*Math.floor(Math.random()*((CANVAS_WIDTH-width[otype])/25 + 1));
+	ypos  = 0;
+	otype = 0;//Math.floor(Math.random()*5);
+	objectExists = 1;
+}
+
+function checkForEmptiness(x, y, w, h)
+{
+	var i, j;
+	for( i=x;i<x+w;i++) {
+		for(j=y;j<y+h;j++)
+		{
+			var p = ctx.getImageData(i, j, 1, 1).data; 
+			if((p[0] != 100) && (p[1] != 200) && (p[2] != 200))
+				return false;
+		}
+	}
+	return true;
+}
+
+function checkRegion(x, y, w, h)
+{
+	//alert("checking region "+x+" "+y+" "+w+" "+h);
+	var i, j;
+	for( i=x;i<x+w;i++) {
+		for(j=y;j<y+h;j++)
+		{
+			var p = ctx.getImageData(i, j, 1, 1).data; 
+			//var hex = "#" + ("000000" + rgbToHex(p[0], p[1], p[2])).slice(-6);
+			if((p[0] == 100) && (p[1] == 200) && (p[2] == 200))
+				return false;
+		}
+	}
+	return true;
+}
+
+function checkObject(type, x, y, dir)
+{
+	//alert("checking");
+	if(y+height[type] >=  CANVAS_HEIGHT)
+		return false;
+	if(type == 0){
+		if(dir=="left" && !checkRegion(x-25,y,25,height[type]))	 
+			 return false;
+		if(dir=="right" && !checkRegion(x+width[type],y,25,height[type]))	 
+			 return false;
+		if(dir=="down" && !checkRegion(x,y+height[type],width[type],speed))	 
+			 return false;
+		//else alert("true");
+	}
+	return true;
+}
+
+function clearObject(type, x, y)
+{
+	ctx.save();
+	ctx.setTransform(1,0,0,1,0,0);
+	ctx.clearRect(x,y, 50, 50);
+	ctx.restore();
+}
+
+function drawObject(type, x, y)
+{
+	ctx.fillRect(x,y, 50, 50);
+	//alert("drawn");
+}
+
+function hideRows()
+{
+	for(i=topcanvaspos;i<CANVAS_HEIGHT && topcanvaspos<CANVAS_HEIGHT;i++)
+	{	
+		if( checkForEmptiness(0,i, CANVAS_WIDTH, 1))		{
+			// copying the rectangle below
+			if( i !=  topcanvaspos)
+			{
+			var imagedata = ctx.getImageData(0, topcanvaspos, CANVAS_WIDTH, i-topcanvaspos);
+			topcanvaspos++;
+			ctx.putImageData(imagedata, 0, topcanvaspos);
+			}
+			else
+			{
+				topcanvaspos++;
+			}
+			
+			// deleting the top most layer
+			ctx.clearRect(0,topcanvaspos-1, CANVAS_WIDTH, 1);	
+			points+=10;
+			$('#points').text(points);
+		}
+	}	
+//	alert("done");
+}
+function clearCanvas()
+{
+	ctx.save();
+	ctx.setTransform(1,0,0,1,0,0);
+	ctx.clearRect(0,0, CANVAS_WIDTH, CANVAS_HEIGHT);
+	ctx.restore();
+}
+
+function update()
+{
+	//alert("updating");
+	
+	if(!objectExists)
+		initObject();
+	else {
+		var tempx = xpos;
+		var tempy = ypos;
+		
+		if (keydown.left && xpos>=25) { //for moving left
+			if(checkObject(otype, xpos, ypos, "left")) {
+			xpos -= 25;
+			//clearObject(otype, xpos+2, ypos);	
+			}
+		}
+		else if (keydown.right && xpos<(CANVAS_WIDTH-width[otype])) {  // for moving right
+			if(checkObject(otype, xpos, ypos, "right")) {
+			xpos += 25;
+			//clearObject(otype, xpos-2, ypos);	
+			}
+		}
+		
+		if(keydown.down) FPS = 200;
+		else FPS = 30;
+			//alert(temp);
+		if(checkObject(otype, xpos, ypos,"down")) {			
+		ypos+=speed; 			
+		clearObject(otype, tempx, tempy);	
+		}
+		else if( ypos < 5)
+		{
+			//	clearTimeout(cycle);
+			running = 0;
+			$('#points').html("You got: "+points+ " points");
+			alert("game over");
+			
+		}
+		else  
+		{
+		topcanvaspos = ypos;
+		objectExists = 0; 
+		}
+	 }
+}
+
+function draw()
+{
+	//redrawing the canvas
+	if(objectExists)
+	{		
+		drawObject(otype, xpos, ypos);
+	}
+	else
+		hideRows();
+}
+
+
+function init() {
+	if(running == 0)
+	{
+		running = 1;
+		ctx.clearRect(0,0,CANVAS_WIDTH, CANVAS_HEIGHT);
+		points = 0;
+		$('#points').html("");
+	}
+	update();
+	draw();
+	if(running)
+	setTimeout(init, 1000/FPS);
+}
+
+</script>
+<button onclick='init()'>start game</button>
+</body>
+</html>
